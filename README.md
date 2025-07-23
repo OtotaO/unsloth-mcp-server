@@ -2,6 +2,10 @@
 
 An MCP server for [Unsloth](https://github.com/unslothai/unsloth) - a library that makes LLM fine-tuning 2x faster with 80% less memory.
 
+<a href="https://glama.ai/mcp/servers/@OtotaO/unsloth-mcp-server">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@OtotaO/unsloth-mcp-server/badge" alt="Unsloth Server MCP server" />
+</a>
+
 ## What is Unsloth?
 
 Unsloth is a library that dramatically improves the efficiency of fine-tuning large language models:
