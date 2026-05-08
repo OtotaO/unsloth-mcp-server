@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/ototao-unsloth-mcp-server-badge.png)](https://mseep.ai/app/ototao-unsloth-mcp-server)
+
 # Unsloth MCP Server
 
 An MCP server for [Unsloth](https://github.com/unslothai/unsloth) - a library that makes LLM fine-tuning 2x faster with 80% less memory.
