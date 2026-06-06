@@ -49,6 +49,57 @@ Unsloth achieves these improvements through custom CUDA kernels written in OpenA
    }
    ```
 
+## Install / Use with Claude Desktop
+
+This server runs over stdio and is launched by your MCP client (Claude Desktop,
+Claude Code, Cline, etc.). Unsloth itself runs in Python, so the host machine
+needs a working Python environment with `unsloth` installed (see
+[Requirements](#requirements)).
+
+### 1. Build the server
+
+```bash
+git clone https://github.com/OtotaO/unsloth-mcp-server.git
+cd unsloth-mcp-server
+npm install
+npm run build
+```
+
+This produces `build/index.js`.
+
+### 2. Register it with Claude Desktop
+
+Open Claude Desktop's config file:
+
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+
+Add an entry under `mcpServers` pointing at the absolute path of the built
+entrypoint:
+
+```json
+{
+  "mcpServers": {
+    "unsloth-server": {
+      "command": "node",
+      "args": ["/absolute/path/to/unsloth-mcp-server/build/index.js"],
+      "env": {
+        "HUGGINGFACE_TOKEN": "your_token_here"
+      }
+    }
+  }
+}
+```
+
+`HUGGINGFACE_TOKEN` is optional and only needed for gated/private models.
+Restart Claude Desktop; the Unsloth tools then appear in the tools menu.
+
+### Use with Claude Code
+
+```bash
+claude mcp add unsloth-server -- node /absolute/path/to/unsloth-mcp-server/build/index.js
+```
+
 ## Available Tools
 
 ### check_installation

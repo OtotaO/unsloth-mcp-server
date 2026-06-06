@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build (tsc)
+        run: npm run build
+
+      # No test script is defined in package.json yet. The build step above
+      # runs `tsc`, which type-checks the entire `src/` tree, so a successful
+      # build is the current type-check / smoke gate. Add a `test` script and a
+      # matching step here when tests are introduced.
+      - name: Smoke check built entrypoint exists
+        run: test -f build/index.js

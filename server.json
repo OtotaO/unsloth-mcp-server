@@ -1,0 +1,31 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.OtotaO/unsloth-mcp-server",
+  "title": "Unsloth MCP Server",
+  "description": "MCP server exposing Unsloth tools for optimizing and fine-tuning LLMs (2x faster, 80% less VRAM) via stdio.",
+  "version": "1.0.0",
+  "websiteUrl": "https://github.com/OtotaO/unsloth-mcp-server",
+  "repository": {
+    "url": "https://github.com/OtotaO/unsloth-mcp-server",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "unsloth-server",
+      "version": "1.0.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "HUGGINGFACE_TOKEN",
+          "description": "Hugging Face access token, used for downloading gated/private models. Optional.",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}
