@@ -1,0 +1,30 @@
+# lefthook.yml — BILLING-IMMUNE local CI gate for unsloth-mcp-server
+#
+# WHY: GitHub Actions gets account-level billing-blocked ("job not started —
+# payments failed / spending limit"), silently killing CI across every private
+# repo at once. These git hooks run the same checks LOCALLY at commit/push time,
+# consuming ZERO CI minutes. The gate cannot drift from CI because there is one
+# source of truth: package.json scripts + tsc.
+#
+# This repo has NO tests, NO lint config, and NO CI workflow today. The only real
+# validation that exists is the TypeScript compiler (strict mode is on in
+# tsconfig.json). So the gate IS the typecheck/build. See risks for the gap.
+#
+#   pre-commit  = fast subset  : `tsc --noEmit` (typecheck only, no emit). ~1-3s.
+#   pre-push    = FULL gate     : `npm run build` (tsc + chmod, the real artifact).
+#
+# Bypass in an emergency with:  git commit --no-verify   /   git push --no-verify
+# (Use sparingly — bypassing is how broken code reaches the default branch.)
+
+pre-commit:
+  parallel: false
+  commands:
+    typecheck:
+      glob: "*.{ts,tsx}"
+      run: npx tsc --noEmit
+
+pre-push:
+  parallel: false
+  commands:
+    build:
+      run: npm run build
