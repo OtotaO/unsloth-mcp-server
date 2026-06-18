@@ -23,31 +23,57 @@ Unsloth achieves these improvements through custom CUDA kernels written in OpenA
 - Simple API for model loading, fine-tuning, and inference
 - Export to various formats (GGUF, Hugging Face, etc.)
 
-## Quick Start
+## Installation
 
-1. Install Unsloth: `pip install unsloth`
-2. Install and build the server:
-   ```bash
-   cd unsloth-server
-   npm install
-   npm run build
-   ```
-3. Add to MCP settings:
+The server is distributed on npm as [`unsloth-mcp-server`](https://www.npmjs.com/package/unsloth-mcp-server) and runs over stdio via `npx` — no manual clone or build required.
+
+1. Install Unsloth on the machine that will run the fine-tuning: `pip install unsloth`
+2. Add the server to your MCP client config. The same `npx`-based block works for **Claude Desktop**, **Claude Code**, **Cline**, **Cursor**, and any MCP client:
+
    ```json
    {
      "mcpServers": {
-       "unsloth-server": {
-         "command": "node",
-         "args": ["/path/to/unsloth-server/build/index.js"],
+       "unsloth": {
+         "command": "npx",
+         "args": ["-y", "unsloth-mcp-server"],
          "env": {
-           "HUGGINGFACE_TOKEN": "your_token_here" // Optional
-         },
-         "disabled": false,
-         "autoApprove": []
+           "HUGGINGFACE_TOKEN": "your_token_here"
+         }
        }
      }
    }
    ```
+
+   `HUGGINGFACE_TOKEN` is optional (only needed for gated/private models). Omit the `env` block if you don't use one.
+
+   For **Claude Code**, you can add it in one line instead:
+
+   ```bash
+   claude mcp add unsloth -- npx -y unsloth-mcp-server
+   ```
+
+### Build from source (optional)
+
+```bash
+git clone https://github.com/OtotaO/unsloth-mcp-server.git
+cd unsloth-mcp-server
+npm install
+npm run build
+```
+
+Then point your MCP client at `build/index.js`:
+
+```json
+{
+  "mcpServers": {
+    "unsloth": {
+      "command": "node",
+      "args": ["/path/to/unsloth-mcp-server/build/index.js"],
+      "env": { "HUGGINGFACE_TOKEN": "your_token_here" }
+    }
+  }
+}
+```
 
 ## Available Tools
 
@@ -60,7 +86,7 @@ Verify if Unsloth is properly installed on your system.
 **Example**:
 ```javascript
 const result = await use_mcp_tool({
-  server_name: "unsloth-server",
+  server_name: "unsloth",
   tool_name: "check_installation",
   arguments: {}
 });
@@ -75,7 +101,7 @@ Get a list of all models supported by Unsloth, including Llama, Mistral, Phi, an
 **Example**:
 ```javascript
 const result = await use_mcp_tool({
-  server_name: "unsloth-server",
+  server_name: "unsloth",
   tool_name: "list_supported_models",
   arguments: {}
 });
@@ -94,7 +120,7 @@ Load a pretrained model with Unsloth optimizations for faster inference and fine
 **Example**:
 ```javascript
 const result = await use_mcp_tool({
-  server_name: "unsloth-server",
+  server_name: "unsloth",
   tool_name: "load_model",
   arguments: {
     model_name: "unsloth/Llama-3.2-1B",
@@ -125,7 +151,7 @@ Fine-tune a model with Unsloth optimizations using LoRA/QLoRA techniques.
 **Example**:
 ```javascript
 const result = await use_mcp_tool({
-  server_name: "unsloth-server",
+  server_name: "unsloth",
   tool_name: "finetune_model",
   arguments: {
     model_name: "unsloth/Llama-3.2-1B",
@@ -152,7 +178,7 @@ Generate text using a fine-tuned Unsloth model.
 **Example**:
 ```javascript
 const result = await use_mcp_tool({
-  server_name: "unsloth-server",
+  server_name: "unsloth",
   tool_name: "generate_text",
   arguments: {
     model_path: "./fine-tuned-model",
@@ -176,7 +202,7 @@ Export a fine-tuned Unsloth model to various formats for deployment.
 **Example**:
 ```javascript
 const result = await use_mcp_tool({
-  server_name: "unsloth-server",
+  server_name: "unsloth",
   tool_name: "export_model",
   arguments: {
     model_path: "./fine-tuned-model",
@@ -195,7 +221,7 @@ You can use custom datasets by formatting them properly and hosting them on Hugg
 
 ```javascript
 const result = await use_mcp_tool({
-  server_name: "unsloth-server",
+  server_name: "unsloth",
   tool_name: "finetune_model",
   arguments: {
     model_name: "unsloth/Llama-3.2-1B",
