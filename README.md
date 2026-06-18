@@ -25,20 +25,30 @@ Unsloth achieves these improvements through custom CUDA kernels written in OpenA
 
 ## Installation
 
-The server is distributed on npm as [`unsloth-mcp-server`](https://www.npmjs.com/package/unsloth-mcp-server) and runs over stdio via `npx` — no manual clone or build required.
+> **Current state:** install from source (below). The package is prepared for npm
+> (`name`, `bin`, `server.json` registry manifest are in place) but is **not yet
+> published** — the `npx`-based config in the next section works only after the
+> npm publish lands.
 
 1. Install Unsloth on the machine that will run the fine-tuning: `pip install unsloth`
-2. Add the server to your MCP client config. The same `npx`-based block works for **Claude Desktop**, **Claude Code**, **Cline**, **Cursor**, and any MCP client:
+2. Build the server from source:
+
+   ```bash
+   git clone https://github.com/OtotaO/unsloth-mcp-server.git
+   cd unsloth-mcp-server
+   npm install
+   npm run build
+   ```
+
+3. Point your MCP client (**Claude Desktop**, **Claude Code**, **Cline**, **Cursor**, …) at the built entrypoint:
 
    ```json
    {
      "mcpServers": {
        "unsloth": {
-         "command": "npx",
-         "args": ["-y", "unsloth-mcp-server"],
-         "env": {
-           "HUGGINGFACE_TOKEN": "your_token_here"
-         }
+         "command": "node",
+         "args": ["/path/to/unsloth-mcp-server/build/index.js"],
+         "env": { "HUGGINGFACE_TOKEN": "your_token_here" }
        }
      }
    }
@@ -46,34 +56,23 @@ The server is distributed on npm as [`unsloth-mcp-server`](https://www.npmjs.com
 
    `HUGGINGFACE_TOKEN` is optional (only needed for gated/private models). Omit the `env` block if you don't use one.
 
-   For **Claude Code**, you can add it in one line instead:
+### After npm publish (planned)
 
-   ```bash
-   claude mcp add unsloth -- npx -y unsloth-mcp-server
-   ```
-
-### Build from source (optional)
-
-```bash
-git clone https://github.com/OtotaO/unsloth-mcp-server.git
-cd unsloth-mcp-server
-npm install
-npm run build
-```
-
-Then point your MCP client at `build/index.js`:
+Once published to npm as `unsloth-mcp-server`, the same clients can run it over stdio via `npx` with no clone/build:
 
 ```json
 {
   "mcpServers": {
     "unsloth": {
-      "command": "node",
-      "args": ["/path/to/unsloth-mcp-server/build/index.js"],
+      "command": "npx",
+      "args": ["-y", "unsloth-mcp-server"],
       "env": { "HUGGINGFACE_TOKEN": "your_token_here" }
     }
   }
 }
 ```
+
+For **Claude Code**: `claude mcp add unsloth -- npx -y unsloth-mcp-server`
 
 ## Available Tools
 
