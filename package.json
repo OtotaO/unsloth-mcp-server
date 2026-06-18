@@ -1,9 +1,25 @@
 {
-  "name": "unsloth-server",
+  "name": "unsloth-mcp-server",
   "version": "1.0.0",
   "description": "MCP server for Unsloth - a library for optimizing and fine-tuning LLMs",
   "type": "module",
   "main": "build/index.js",
+  "bin": {
+    "unsloth-mcp-server": "build/index.js"
+  },
+  "files": [
+    "build",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OtotaO/unsloth-mcp-server.git"
+  },
+  "homepage": "https://github.com/OtotaO/unsloth-mcp-server#readme",
+  "bugs": {
+    "url": "https://github.com/OtotaO/unsloth-mcp-server/issues"
+  },
+  "mcpName": "io.github.OtotaO/unsloth-mcp-server",
   "scripts": {
     "build": "tsc && chmod +x build/index.js",
     "start": "node build/index.js",
