@@ -7,11 +7,11 @@ import {
   ListToolsRequestSchema,
   McpError,
 } from '@modelcontextprotocol/sdk/types.js';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 import axios from 'axios';
 
-const execPromise = promisify(exec);
+const execFilePromise = promisify(execFile);
 
 // Get API keys from environment variables if needed
 const HF_TOKEN = process.env.HUGGINGFACE_TOKEN;
@@ -45,16 +45,22 @@ class UnslothServer {
 
   private async checkUnslothInstallation(): Promise<boolean> {
     try {
-      await execPromise('python -c "import unsloth"');
+      await execFilePromise('python', ['-c', 'import unsloth']);
       return true;
     } catch (error) {
       return false;
     }
   }
 
-  private async executeUnslothScript(script: string): Promise<string> {
+  // Scripts must never interpolate user-supplied values into their source:
+  // values are passed out-of-band via UNSLOTH_MCP_PARAMS and read in Python
+  // with json.loads, so they can't escape into shell or Python code.
+  private async executeUnslothScript(script: string, params: Record<string, unknown> = {}): Promise<string> {
     try {
-      const { stdout, stderr } = await execPromise(`python -c "${script}"`);
+      const { stdout, stderr } = await execFilePromise('python', ['-c', script], {
+        env: { ...process.env, UNSLOTH_MCP_PARAMS: JSON.stringify(params) },
+        maxBuffer: 16 * 1024 * 1024,
+      });
       if (stderr && !stdout) {
         throw new Error(stderr);
       }
@@ -313,33 +319,40 @@ except Exception as e:
 
             const script = `
 import json
+import os
+p = json.loads(os.environ["UNSLOTH_MCP_PARAMS"])
 try:
     from unsloth import FastLanguageModel
-    
+
     # Load the model
     model, tokenizer = FastLanguageModel.from_pretrained(
-        model_name="${model_name}",
-        max_seq_length=${max_seq_length},
-        load_in_4bit=${load_in_4bit ? 'True' : 'False'},
-        use_gradient_checkpointing=${use_gradient_checkpointing ? '"unsloth"' : 'False'}
+        model_name=p["model_name"],
+        max_seq_length=p["max_seq_length"],
+        load_in_4bit=p["load_in_4bit"],
+        use_gradient_checkpointing="unsloth" if p["use_gradient_checkpointing"] else False
     )
-    
+
     # Get model info
     model_info = {
-        "model_name": "${model_name}",
-        "max_seq_length": ${max_seq_length},
-        "load_in_4bit": ${load_in_4bit},
-        "use_gradient_checkpointing": ${use_gradient_checkpointing},
+        "model_name": p["model_name"],
+        "max_seq_length": p["max_seq_length"],
+        "load_in_4bit": p["load_in_4bit"],
+        "use_gradient_checkpointing": p["use_gradient_checkpointing"],
         "vocab_size": tokenizer.vocab_size,
         "model_type": model.config.model_type,
         "success": True
     }
-    
+
     print(json.dumps(model_info))
 except Exception as e:
     print(json.dumps({"error": str(e), "success": False}))
 `;
-            const result = await this.executeUnslothScript(script);
+            const result = await this.executeUnslothScript(script, {
+              model_name,
+              max_seq_length,
+              load_in_4bit,
+              use_gradient_checkpointing,
+            });
             
             try {
               const modelInfo = JSON.parse(result);
@@ -392,76 +405,90 @@ except Exception as e:
             const script = `
 import json
 import os
+p = json.loads(os.environ["UNSLOTH_MCP_PARAMS"])
 try:
     from unsloth import FastLanguageModel
     from datasets import load_dataset
     from trl import SFTTrainer, SFTConfig
     import torch
-    
+
     # Create output directory if it doesn't exist
-    os.makedirs("${output_dir}", exist_ok=True)
-    
+    os.makedirs(p["output_dir"], exist_ok=True)
+
     # Load the model
     model, tokenizer = FastLanguageModel.from_pretrained(
-        model_name="${model_name}",
-        max_seq_length=${max_seq_length},
-        load_in_4bit=${load_in_4bit ? 'True' : 'False'},
+        model_name=p["model_name"],
+        max_seq_length=p["max_seq_length"],
+        load_in_4bit=p["load_in_4bit"],
         use_gradient_checkpointing="unsloth"
     )
-    
+
     # Load the dataset
-    dataset = load_dataset("${dataset_name}")
-    
+    dataset = load_dataset(p["dataset_name"])
+
     # Patch the model with LoRA
     model = FastLanguageModel.get_peft_model(
         model,
-        r=${lora_rank},
+        r=p["lora_rank"],
         target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
-        lora_alpha=${lora_alpha},
+        lora_alpha=p["lora_alpha"],
         use_gradient_checkpointing="unsloth",
         random_state=3407,
-        max_seq_length=${max_seq_length},
+        max_seq_length=p["max_seq_length"],
         use_rslora=False,
         loftq_config=None
     )
-    
+
     # Configure the trainer
     trainer = SFTTrainer(
         model=model,
         train_dataset=dataset["train"],
         tokenizer=tokenizer,
         args=SFTConfig(
-            dataset_text_field="${dataset_text_field}",
-            max_seq_length=${max_seq_length},
-            per_device_train_batch_size=${batch_size},
-            gradient_accumulation_steps=${gradient_accumulation_steps},
+            dataset_text_field=p["dataset_text_field"],
+            max_seq_length=p["max_seq_length"],
+            per_device_train_batch_size=p["batch_size"],
+            gradient_accumulation_steps=p["gradient_accumulation_steps"],
             warmup_steps=10,
-            max_steps=${max_steps},
-            learning_rate=${learning_rate},
+            max_steps=p["max_steps"],
+            learning_rate=p["learning_rate"],
             logging_steps=1,
-            output_dir="${output_dir}",
+            output_dir=p["output_dir"],
             optim="adamw_8bit",
             seed=3407,
         ),
     )
-    
+
     # Train the model
     trainer.train()
-    
+
     # Save the model
     trainer.save_model()
-    
+
     print(json.dumps({
         "success": True,
-        "output_dir": "${output_dir}",
-        "model_name": "${model_name}",
-        "dataset_name": "${dataset_name}",
-        "max_steps": ${max_steps}
+        "output_dir": p["output_dir"],
+        "model_name": p["model_name"],
+        "dataset_name": p["dataset_name"],
+        "max_steps": p["max_steps"]
     }))
 except Exception as e:
     print(json.dumps({"error": str(e), "success": False}))
 `;
-            const result = await this.executeUnslothScript(script);
+            const result = await this.executeUnslothScript(script, {
+              model_name,
+              dataset_name,
+              output_dir,
+              max_seq_length,
+              lora_rank,
+              lora_alpha,
+              batch_size,
+              gradient_accumulation_steps,
+              learning_rate,
+              max_steps,
+              dataset_text_field,
+              load_in_4bit,
+            });
             
             try {
               const trainingResult = JSON.parse(result);
@@ -499,36 +526,44 @@ except Exception as e:
 
             const script = `
 import json
+import os
+p = json.loads(os.environ["UNSLOTH_MCP_PARAMS"])
 try:
     from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
-    
+
     # Load the model and tokenizer
-    model = AutoModelForCausalLM.from_pretrained("${model_path}")
-    tokenizer = AutoTokenizer.from_pretrained("${model_path}")
-    
+    model = AutoModelForCausalLM.from_pretrained(p["model_path"])
+    tokenizer = AutoTokenizer.from_pretrained(p["model_path"])
+
     # Create a text generation pipeline
     generator = pipeline(
         "text-generation",
         model=model,
         tokenizer=tokenizer,
-        max_new_tokens=${max_new_tokens},
-        temperature=${temperature},
-        top_p=${top_p},
+        max_new_tokens=p["max_new_tokens"],
+        temperature=p["temperature"],
+        top_p=p["top_p"],
         do_sample=True
     )
-    
+
     # Generate text
-    result = generator("${prompt.replace(/"/g, '\\"')}")
-    
+    result = generator(p["prompt"])
+
     print(json.dumps({
         "success": True,
-        "prompt": "${prompt.replace(/"/g, '\\"')}",
+        "prompt": p["prompt"],
         "generated_text": result[0]["generated_text"]
     }))
 except Exception as e:
     print(json.dumps({"error": str(e), "success": False}))
 `;
-            const result = await this.executeUnslothScript(script);
+            const result = await this.executeUnslothScript(script, {
+              model_path,
+              prompt,
+              max_new_tokens,
+              temperature,
+              top_p,
+            });
             
             try {
               const generationResult = JSON.parse(result);
@@ -568,34 +603,35 @@ except Exception as e:
               script = `
 import json
 import os
+p = json.loads(os.environ["UNSLOTH_MCP_PARAMS"])
 try:
     from transformers import AutoModelForCausalLM, AutoTokenizer
     import torch
-    
+
     # Create output directory if it doesn't exist
-    os.makedirs(os.path.dirname("${output_path}"), exist_ok=True)
-    
+    os.makedirs(os.path.dirname(p["output_path"]), exist_ok=True)
+
     # Load the model and tokenizer
-    model = AutoModelForCausalLM.from_pretrained("${model_path}")
-    tokenizer = AutoTokenizer.from_pretrained("${model_path}")
-    
+    model = AutoModelForCausalLM.from_pretrained(p["model_path"])
+    tokenizer = AutoTokenizer.from_pretrained(p["model_path"])
+
     # Save the model in GGUF format
     from transformers import LlamaForCausalLM
     import ctranslate2
-    
+
     # Convert to GGUF format
     ct_model = ctranslate2.converters.TransformersConverter(
-        "${model_path}",
-        "${output_path}",
-        quantization="int${quantization_bits}"
+        p["model_path"],
+        p["output_path"],
+        quantization="int%d" % p["quantization_bits"]
     ).convert()
-    
+
     print(json.dumps({
         "success": True,
-        "model_path": "${model_path}",
+        "model_path": p["model_path"],
         "export_format": "gguf",
-        "output_path": "${output_path}",
-        "quantization_bits": ${quantization_bits}
+        "output_path": p["output_path"],
+        "quantization_bits": p["quantization_bits"]
     }))
 except Exception as e:
     print(json.dumps({"error": str(e), "success": False}))
@@ -604,25 +640,26 @@ except Exception as e:
               script = `
 import json
 import os
+p = json.loads(os.environ["UNSLOTH_MCP_PARAMS"])
 try:
     from transformers import AutoModelForCausalLM, AutoTokenizer
-    
+
     # Create output directory if it doesn't exist
-    os.makedirs("${output_path}", exist_ok=True)
-    
+    os.makedirs(p["output_path"], exist_ok=True)
+
     # Load the model and tokenizer
-    model = AutoModelForCausalLM.from_pretrained("${model_path}")
-    tokenizer = AutoTokenizer.from_pretrained("${model_path}")
-    
+    model = AutoModelForCausalLM.from_pretrained(p["model_path"])
+    tokenizer = AutoTokenizer.from_pretrained(p["model_path"])
+
     # Save the model in Hugging Face format
-    model.save_pretrained("${output_path}")
-    tokenizer.save_pretrained("${output_path}")
-    
+    model.save_pretrained(p["output_path"])
+    tokenizer.save_pretrained(p["output_path"])
+
     print(json.dumps({
         "success": True,
-        "model_path": "${model_path}",
+        "model_path": p["model_path"],
         "export_format": "huggingface",
-        "output_path": "${output_path}"
+        "output_path": p["output_path"]
     }))
 except Exception as e:
     print(json.dumps({"error": str(e), "success": False}))
@@ -639,8 +676,12 @@ except Exception as e:
               };
             }
             
-            const result = await this.executeUnslothScript(script);
-            
+            const result = await this.executeUnslothScript(script, {
+              model_path,
+              output_path,
+              quantization_bits,
+            });
+
             try {
               const exportResult = JSON.parse(result);
               if (!exportResult.success) {
