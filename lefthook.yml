@@ -11,7 +11,13 @@
 # tsconfig.json). So the gate IS the typecheck/build. See risks for the gap.
 #
 #   pre-commit  = fast subset  : `tsc --noEmit` (typecheck only, no emit). ~1-3s.
-#   pre-push    = FULL gate     : `npm run build` (tsc + chmod, the real artifact).
+#   pre-push    = FULL gate     : `npm run build` (tsc + chmod, the real artifact)
+#                                 + `npm run check:pack` (publish safety).
+#
+# check:pack exists because build/ is gitignored: without a `prepack` script,
+# `npm publish` from a clean checkout shipped a tarball with NO executable while
+# package.json's `bin` still pointed at build/index.js. It packs exactly as
+# publish would and fails if the entry point is absent.
 #
 # Bypass in an emergency with:  git commit --no-verify   /   git push --no-verify
 # (Use sparingly — bypassing is how broken code reaches the default branch.)
@@ -28,3 +34,5 @@ pre-push:
   commands:
     build:
       run: npm run build
+    publish-safety:
+      run: npm run check:pack

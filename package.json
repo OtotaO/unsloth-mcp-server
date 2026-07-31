@@ -24,6 +24,8 @@
     "build": "tsc && chmod +x build/index.js",
     "start": "node build/index.js",
     "dev": "ts-node src/index.ts",
+    "prepack": "npm run build",
+    "check:pack": "node scripts/check-pack.mjs",
     "prepare": "lefthook install"
   },
   "keywords": [
